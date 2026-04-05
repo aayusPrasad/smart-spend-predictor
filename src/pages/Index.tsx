@@ -17,9 +17,27 @@ const budgetData: Record<string, { spent: number; budget: number }> = {
 };
 
 const statCards = [
-  { label: "Total Spent", value: "$1,560", icon: Wallet, change: "+12%", negative: true },
-  { label: "Total Budget", value: "$1,600", icon: CreditCard, change: "97% used", negative: false },
-  { label: "Savings", value: "$40", icon: TrendingDown, change: "-68%", negative: true },
+  {
+    label: "Total Spent",
+    value: "$1,560",
+    icon: Wallet,
+    change: "+12%",
+    negative: true,
+  },
+  {
+    label: "Total Budget",
+    value: "$1,600",
+    icon: CreditCard,
+    change: "97% used",
+    negative: false,
+  },
+  {
+    label: "Savings",
+    value: "$40",
+    icon: TrendingDown,
+    change: "-68%",
+    negative: true,
+  },
 ];
 
 const Index = () => {
@@ -35,29 +53,40 @@ const Index = () => {
   const handlePredict = async (description: string, amount: number) => {
     setIsLoading(true);
 
+    const API_URL =
+      window.location.hostname === "localhost"
+        ? "http://127.0.0.1:8000/predict"
+        : "https://aayup78bm-smartspendpredictor.hf.space/predict";
+
     try {
-      const response = await fetch("http://127.0.0.1:8000/predict", {
+      const response = await fetch(API_URL, {
         method: "POST",
         headers: {
-          "Content-Type": "application/json"
+          "Content-Type": "application/json",
         },
         body: JSON.stringify({
           text: description,
-          amount: amount
-        })
+          amount: amount,
+        }),
       });
 
       const data = await response.json();
 
       setResult({
-        category: data.category,
+        category: data.category.toLowerCase(),
         confidence: data.confidence,
         description,
-        amount
+        amount,
       });
-
     } catch (error) {
       console.error("Backend error:", error);
+
+      setResult({
+        category: "error",
+        confidence: 0,
+        description,
+        amount,
+      });
     }
 
     setIsLoading(false);
@@ -69,7 +98,11 @@ const Index = () => {
         spent: (budgetData[result.category]?.spent ?? 0) + result.amount,
         budget: budgetData[result.category]?.budget ?? 0,
       }
-    : { category: null, spent: null, budget: null };
+    : {
+        category: null,
+        spent: null,
+        budget: null,
+      };
 
   return (
     <SidebarProvider>
@@ -82,12 +115,13 @@ const Index = () => {
             <SidebarTrigger className="mr-4" />
             <div className="flex items-center gap-2">
               <Sparkles className="h-4 w-4 text-primary" />
-              <span className="text-sm font-medium text-muted-foreground">Dashboard</span>
+              <span className="text-sm font-medium text-muted-foreground">
+                Dashboard
+              </span>
             </div>
           </header>
 
           <main className="flex-1 p-4 md:p-8 lg:p-10 max-w-6xl mx-auto w-full">
-
             <div className="mb-8">
               <h1 className="text-3xl md:text-4xl font-bold text-foreground tracking-tight">
                 Smart Expense Predictor
@@ -115,7 +149,11 @@ const Index = () => {
                       {s.value}
                     </span>
 
-                    <span className={`text-xs font-semibold ${s.negative ? "text-red-500" : "text-green-500"}`}>
+                    <span
+                      className={`text-xs font-semibold ${
+                        s.negative ? "text-red-500" : "text-green-500"
+                      }`}
+                    >
                       {s.change}
                     </span>
                   </div>
@@ -148,7 +186,6 @@ const Index = () => {
               <SpendingOverview />
               <TransactionHistory />
             </div>
-
           </main>
         </div>
       </div>
