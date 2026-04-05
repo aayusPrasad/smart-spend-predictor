@@ -3,10 +3,11 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 import pickle
 import json
+import os
 
 app = FastAPI(title="SmartSpend AI Backend")
 
-# CORS for frontend connection
+# CORS
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -15,15 +16,20 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# Safe path handling
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+MODEL_PATH = os.path.join(BASE_DIR, "model", "expense_pipeline.pkl")
+LIMITS_PATH = os.path.join(BASE_DIR, "model", "limits.json")
+
 # Load ML model
-with open("model/expense_pipeline.pkl", "rb") as f:
+with open(MODEL_PATH, "rb") as f:
     pipeline = pickle.load(f)
 
-# Load spending limits
-with open("model/limits.json", "r") as f:
+# Load limits
+with open(LIMITS_PATH, "r") as f:
     limits = json.load(f)
 
-# Dummy monthly spending tracker
+# Monthly spending tracker
 spent = {
     "food": 2800,
     "travel": 2000,
@@ -48,7 +54,7 @@ class ExpenseInput(BaseModel):
 
 # Warning logic
 def spending_alert(category):
-    ratio = spent[category] / limits[category]
+    ratio = spent.get(category, 0) / limits.get(category, 1)
 
     if ratio >= 1:
         return "🚨 Limit exceeded"
@@ -72,13 +78,13 @@ def predict_expense(data: ExpenseInput):
     pred = pipeline.predict([data.text])[0]
     prob = pipeline.predict_proba([data.text]).max()
 
-    # Update spending
+    pred = pred.lower()
+
     if pred in spent:
         spent[pred] += data.amount
 
     warning = spending_alert(pred)
 
-    # Save history
     entry = {
         "text": data.text,
         "amount": data.amount,
@@ -97,7 +103,7 @@ def predict_expense(data: ExpenseInput):
     }
 
 
-# Spending summary route
+# Summary route
 @app.get("/summary")
 def get_summary():
     return {
@@ -106,7 +112,7 @@ def get_summary():
     }
 
 
-# Prediction history route
+# History route
 @app.get("/history")
 def get_history():
     return {
